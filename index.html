@@ -273,8 +273,10 @@ async function send() {
     });
 
     if (!resp.ok) throw new Error(await resp.text());
-    const data = await resp.json();
-    addBubble(data.coach, "coach");
+    const data = await resp.json();if (data.metrics) updateMetrics(data.metrics);
+if (data.entry) { addSession(data.entry); refreshDashboard(); }
+addBubble(data.coach, "coach");              
+    
   } catch (e) {
     addBubble(
       "Feedback:\n" +
