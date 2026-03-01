@@ -29,6 +29,9 @@
     .metric strong{display:block;font-size:12px;color:#AAB2D9}
     .metric span{font-weight:900}
     .foot{font-size:12px;color:#AAB2D9;margin-top:6px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{border:1px solid rgba(255,255,255,0.12);padding:6px 8px;font-size:12px}
+    th{color:#AAB2D9}
   </style>
 </head>
 <body>
@@ -80,8 +83,12 @@
   </div>
 
   <div class="card">
-    <strong>Faculty dashboard (demo)</strong>
-    <p class="foot" style="margin:10px 0 0">Sessions: 64 · Avg LCI: 72 · Export: CSV</p>
+    <strong>Faculty dashboard</strong>
+    <p class="foot" style="margin:10px 0 0">
+      Sessions: <span id="dSessions">0</span> · Avg LCI: <span id="dAvg">—</span> · Export:
+      <button class="pill" onclick="exportCsv()">CSV</button>
+    </p>
+    <div id="dashTable" class="foot">No sessions yet.</div>
   </div>
 </div>
 
@@ -91,6 +98,7 @@
 
 <script>
 const API_URL = "https://drgs-language-coach-api.jit45bof.workers.dev/api/chat";
+const STORAGE_KEY = "drg_langcoach_sessions";
 
 const scenarios = {
   "Study Abroad": [{
@@ -114,6 +122,9 @@ const chat = document.getElementById("chat"),
 const mA = document.getElementById("mAccuracy"),
       mC = document.getElementById("mComplexity"),
       mP = document.getElementById("mPragmatics");
+const dSessions = document.getElementById("dSessions"),
+      dAvg = document.getElementById("dAvg"),
+      dashTable = document.getElementById("dashTable");
 
 let scenario = "Study Abroad";
 
@@ -142,8 +153,9 @@ function updateMetrics(mt) {
   mA.textContent = Math.round(mt.acc) + "/100";
   mC.textContent = Math.round(mt.comp) + "/100";
   mP.textContent = Math.round(mt.pra) + "/100";
-  const lci = Math.round((mt.acc + mt.comp + mt.pra) / 3);
+  const lci = computeLCI(mt);
   sessionLCI.textContent = "LCI: " + lci;
+  return lci;
 }
 
 function computeMetrics(text) {
@@ -171,13 +183,85 @@ function computeMetrics(text) {
   return { acc, comp, pra };
 }
 
+function computeLCI(mt){
+  return Math.round((mt.acc + mt.comp + mt.pra) / 3);
+}
+
+function loadSessions(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function saveSessions(list){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
+function addSession(entry){
+  const sessions = loadSessions();
+  sessions.unshift(entry);
+  saveSessions(sessions.slice(0, 25));
+}
+
+function refreshDashboard(){
+  const sessions = loadSessions();
+  dSessions.textContent = sessions.length;
+  dAvg.textContent = sessions.length ? Math.round(sessions.reduce((sum, s) => sum + s.lci, 0) / sessions.length) : "—";
+
+  if (!sessions.length){
+    dashTable.innerHTML = "<div class='foot'>No sessions yet.</div>";
+    return;
+  }
+
+  const rows = sessions.slice(0, 5).map(s => {
+    const ts = new Date(s.ts).toLocaleString();
+    return `<tr><td>${ts}</td><td>${s.scenario}</td><td style='font-weight:900'>${s.lci}</td><td>${s.text}</td></tr>`;
+  }).join("");
+
+  dashTable.innerHTML = `<table><thead><tr><th>Time</th><th>Scenario</th><th>LCI</th><th>Student text</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function exportCsv(){
+  const sessions = loadSessions();
+  const header = "ts,scenario,lci,accuracy,complexity,pragmatics,text";
+  const lines = sessions.map(s => {
+    return [
+      s.ts,
+      escapeCsv(s.scenario),
+      s.lci,
+      Math.round(s.mt.acc),
+      Math.round(s.mt.comp),
+      Math.round(s.mt.pra),
+      escapeCsv(s.text)
+    ].join(",");
+  });
+
+  const csv = [header, ...lines].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "drgs_language_coach_sessions.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsv(val){
+  if (val == null) return "";
+  const v = String(val).replace(/"/g,'""');
+  return `"${v}"`;
+}
+
 async function send() {
   const text = input.value.trim();
   if (!text) return;
   input.value = "";
 
   const mt = computeMetrics(text);
-  updateMetrics(mt);
+  const lci = updateMetrics(mt);
+  addSession({ ts: Date.now(), scenario, text, lci, mt });
+  refreshDashboard();
 
   addBubble(text, "me");
 
@@ -197,12 +281,14 @@ async function send() {
         scenarios[scenario][0].summary +
         "\n\nLanguage Capital snapshot:\n- Accuracy: " + Math.round(mt.acc) +
         "\n- Complexity: " + Math.round(mt.comp) +
-        "\n- Pragmatics: " + Math.round(mt.pra),
+        "\n- Pragmatics: " + Math.round(mt.pra) +
+        "\n- LCI: " + lci,
       "coach"
     );
   }
 }
 
+refreshDashboard();
 showPrompt();
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") send();
