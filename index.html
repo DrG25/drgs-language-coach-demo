@@ -7,9 +7,10 @@
   <style>
     body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#070A16;color:#E9ECF7}
     header{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.35);position:sticky;top:0}
-    h1{font-size:26px;margin:12px 0}p{color:#AAB2D9;line-height:1.45;font-weight:600}
+    h1{font-size:26px;margin:12px 0}
+    p{color:#AAB2D9;line-height:1.45;font-weight:600}
     .container{max-width:980px;margin:0 auto;padding:16px}
-    .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
     .logo{height:44px;border-radius:10px}
     .btns{display:flex;gap:8px;flex-wrap:wrap}
     .pill{padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.02);color:#E9ECF7;cursor:pointer}
@@ -25,7 +26,8 @@
     .row button:hover{filter:brightness(1.07)}
     .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
     .metric{border-radius:14px;padding:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.02)}
-    .metric strong{display:block;font-size:12px;color:#AAB2D9}.metric span{font-weight:900}
+    .metric strong{display:block;font-size:12px;color:#AAB2D9}
+    .metric span{font-weight:900}
     .foot{font-size:12px;color:#AAB2D9;margin-top:6px}
   </style>
 </head>
@@ -49,7 +51,7 @@
 <div class="container">
   <div class="card">
     <h1>Institutional demo</h1>
-    <p>AI language coaching + metrics for universities. Demo con fallback: si el backend no responde, muestra el feedback precomputado.</p>
+    <p>AI language coaching + metrics for universities. If the API doesn’t respond, the demo keeps running with precomputed feedback.</p>
   </div>
 
   <div class="card">
@@ -74,7 +76,7 @@
       <button onclick="send()">Send</button>
     </div>
 
-    <div class="foot">Powered by Cloudflare Worker + OpenAI (tu key no está en el frontend).</div>
+    <div class="foot">Powered by Cloudflare Worker + OpenAI (key stays in the backend).</div>
   </div>
 
   <div class="card">
@@ -91,27 +93,18 @@
 const API_URL = "https://drgs-language-coach-api.jit45bof.workers.dev/api/chat";
 
 const scenarios = {
-  "Study Abroad": [
-    {
-      prompt: "Bienvenido. Practiquemos una auto-presentación breve. 2–4 frases.",
-      metrics: { acc:55, comp:48, pra:62 },
-      summary: "Bien estructurado. Upgrade: agrega una frase conectando metas y aprendizaje cultural."
-    }
-  ],
-  "Job Interview": [
-    {
-      prompt: "Tell me about yourself (30–45 words).",
-      metrics: { acc:64, comp:63, pra:70 },
-      summary: "Buen formato. Upgrade: sustituye fillers por conectores profesionales."
-    }
-  ],
-  "Academic Presentation": [
-    {
-      prompt: "Write an opening: topic, thesis, why it matters.",
-      metrics: { acc:61, comp:55, pra:66 },
-      summary: "Claro. Upgrade: añade frase de mapa (First, I will...)."
-    }
-  ]
+  "Study Abroad": [{
+    prompt: "Bienvenido. Practiquemos una auto-presentación breve. 2–4 frases.",
+    summary: "Bien estructurado. Upgrade: agrega una frase conectando metas y aprendizaje cultural."
+  }],
+  "Job Interview": [{
+    prompt: "Tell me about yourself (30–45 words).",
+    summary: "Buen formato. Upgrade: sustituye fillers por conectores profesionales."
+  }],
+  "Academic Presentation": [{
+    prompt: "Write an opening: topic, thesis, why it matters.",
+    summary: "Claro. Upgrade: añade frase de mapa (First, I will...)."
+  }]
 };
 
 const chat = document.getElementById("chat"),
@@ -146,20 +139,48 @@ function showPrompt() {
 }
 
 function updateMetrics(mt) {
-  mA.textContent = mt.acc + "/100";
-  mC.textContent = mt.comp + "/100";
-  mP.textContent = mt.pra + "/100";
+  mA.textContent = Math.round(mt.acc) + "/100";
+  mC.textContent = Math.round(mt.comp) + "/100";
+  mP.textContent = Math.round(mt.pra) + "/100";
   const lci = Math.round((mt.acc + mt.comp + mt.pra) / 3);
   sessionLCI.textContent = "LCI: " + lci;
+}
+
+function computeMetrics(text) {
+  function clamp(x){return Math.max(0, Math.min(100, x));}
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+  const uniqueCount = new Set(words.map(w => w.toLowerCase())).size;
+  const lexical = wordCount ? uniqueCount / wordCount : 0;
+  const sentences = text.split(/[.!?]/).filter(s => s.trim().length).length;
+  const avgSentence = sentences ? wordCount / sentences : wordCount;
+
+  let acc = 45 + lexical * 25 + Math.min(wordCount, 60) / 3;
+  let comp = 35 + lexical * 35 + avgSentence * 1.6;
+  let pra = 45 + Math.min(sentences, 3) * 10;
+
+  const t = text.toLowerCase();
+  const polite = ["please","thank","gracias","por favor","thank you","perdón","sorry"];
+  if (polite.some(p => t.includes(p))) pra += 8;
+  if (t.includes("because") || t.includes("porque")) comp += 5;
+
+  acc = clamp(acc);
+  comp = clamp(comp);
+  pra = clamp(pra);
+
+  return { acc, comp, pra };
 }
 
 async function send() {
   const text = input.value.trim();
   if (!text) return;
   input.value = "";
+
+  const mt = computeMetrics(text);
+  updateMetrics(mt);
+
   addBubble(text, "me");
 
-  // Try live API first
   try {
     const resp = await fetch(API_URL, {
       method: "POST",
@@ -171,15 +192,14 @@ async function send() {
     const data = await resp.json();
     addBubble(data.coach, "coach");
   } catch (e) {
-    // Fallback demo
-    const mt = scenarios[scenario][0].metrics;
     addBubble(
       "Feedback:\n" +
         scenarios[scenario][0].summary +
-        `\n\nLanguage Capital snapshot:\n- Accuracy: ${mt.acc}\n- Complexity: ${mt.comp}\n- Pragmatics: ${mt.pra}`,
+        "\n\nLanguage Capital snapshot:\n- Accuracy: " + Math.round(mt.acc) +
+        "\n- Complexity: " + Math.round(mt.comp) +
+        "\n- Pragmatics: " + Math.round(mt.pra),
       "coach"
     );
-    updateMetrics(mt);
   }
 }
 
