@@ -1,1 +1,192 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dr. G’s Language Coach Demo</title><style>body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#070A16;color:#E9ECF7}header{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.35);position:sticky;top:0}h1{font-size:26px;margin:12px 0}p{color:#AAB2D9;line-height:1.45;font-weight:600}.container{max-width:980px;margin:0 auto;padding:16px}.card{border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px;background:rgba(255,255,255,0.03);margin-bottom:18px}.chat{height:260px;overflow:auto;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;background:rgba(0,0,0,0.16)}.bubble{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03)}.me{background:linear-gradient(135deg,rgba(45,156,219,0.20),rgba(255,255,255,0.04))}.meta{font-size:12px;font-weight:900;color:#AAB2D9}.row{display:flex;gap:10px}.row input{flex:1;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);color:#E9ECF7}.row button{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:linear-gradient(135deg,rgba(255,209,102,0.25),rgba(45,156,219,0.18));font-weight:900;color:#fff;cursor:pointer}.row button:hover{filter:brightness(1.07)}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.metric{border-radius:14px;padding:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.02)}.metric strong{display:block;font-size:12px;color:#AAB2D9}.metric span{font-weight:900}.foot{font-size:12px;color:#AAB2D9;margin-top:6px}</style></head><body><header><div class="container"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><strong>Dr. G’s Language Coach</strong></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="setScenario('Study Abroad')">Study Abroad</button><button onclick="setScenario('Job Interview')">Job Interview</button><button onclick="setScenario('Academic Presentation')">Academic Presentation</button></div></div></div></header><div class="container"><div class="card"><h1>Institutional demo</h1><p>AI language coaching + metrics for universities. This demo simulates Language Capital metrics (Accuracy/Complexity/Pragmatics) and faculty-facing insights.</p></div><div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong>Coaching session</strong><div id="scenarioLabel" class="foot">Scenario: Study Abroad</div></div><div id="sessionLCI" style="font-weight:900">LCI: —</div></div><div id="chat" class="chat" aria-label="Demo conversation"></div><div class="metrics" aria-label="Language Capital metrics"><div class="metric"><strong>Accuracy</strong><span id="mAccuracy">—</span></div><div class="metric"><strong>Complexity</strong><span id="mComplexity">—</span></div><div class="metric"><strong>Pragmatics</strong><span id="mPragmatics">—</span></div></div><div class="row"><input id="input" placeholder="Escribe aquí (2–4 frases)..." aria-label="Your message"><button onclick="send()">Send</button></div><div class="foot">Demo only: feedback precomputado para simular producto.</div></div><div class="card"><strong>Faculty dashboard (demo)</strong><p class="foot" style="margin:10px 0 0">Sessions: 64 · Avg LCI: 72 · Export: CSV</p></div></div><footer class="container"><div class="foot">GitHub Pages demo · DrG25</div></footer><script>const scenarios={"Study Abroad":[{prompt:"Bienvenido. Practiquemos una auto-presentación breve. 2–4 frases.",metrics:{acc:55,comp:48,pra:62},summary:"Bien estructurado. Upgrade: agrega una frase conectando metas y aprendizaje cultural."},{prompt:"Ahora añade un objetivo concreto (internship/curso).",metrics:{acc:62,comp:57,pra:68},summary:"Mejor. Upgrade: añade un conector formal (Además / En particular)."}],"Job Interview":[{prompt:"Tell me about yourself (30–45 words).",metrics:{acc:64,comp:63,pra:70},summary:"Buen formato. Upgrade: sustituye fillers por conectores profesionales."},{prompt:"Now quantify one achievement.",metrics:{acc:72,comp:68,pra:77},summary:"Mejor. Upgrade: añade impacto con número/tiempo."}],"Academic Presentation":[{prompt:"Write an opening: topic, thesis, why it matters.",metrics:{acc:61,comp:55,pra:66},summary:"Claro. Upgrade: añade frase de mapa (First, I will...)."},{prompt:"Add one precise term and define it once.",metrics:{acc:68,comp:63,pra:72},summary:"Más preciso. Upgrade: define un término clave y mantén consistencia."}]};const chat=document.getElementById('chat'),input=document.getElementById('input'),scenarioLabel=document.getElementById('scenarioLabel'),sessionLCI=document.getElementById('sessionLCI');const mA=document.getElementById('mAccuracy'),mC=document.getElementById('mComplexity'),mP=document.getElementById('mPragmatics');let scenario='Study Abroad',turn=0;function addBubble(text,who){const div=document.createElement('div');div.className='bubble '+(who==='me'?'me':'');div.innerHTML=`<div class="meta">${who==='me'?'You':'Coach'}</div><div>${text.replace(/\n/g,'<br>')}</div>`;chat.appendChild(div);chat.scrollTop=chat.scrollHeight;}function setScenario(s){scenario=s;scenarioLabel.textContent='Scenario: '+s;turn=0;chat.innerHTML='';showPrompt();mA.textContent=mC.textContent=mP.textContent='—';sessionLCI.textContent='LCI: —';}function showPrompt(){addBubble(scenarios[scenario][turn].prompt,'coach');}function updateMetrics(mt){mA.textContent=mt.acc+'/100';mC.textContent=mt.comp+'/100';mP.textContent=mt.pra+'/100';const lci=Math.round((mt.acc+mt.comp+mt.pra)/3);sessionLCI.textContent='LCI: '+lci;}function send(){const text=input.value.trim();if(!text)return;input.value='';addBubble(text,'me');const mt=scenarios[scenario][turn].metrics;addBubble('Feedback:\n'+scenarios[scenario][turn].summary+`\n\nLanguage Capital snapshot:\n- Accuracy: ${mt.acc}\n- Complexity: ${mt.comp}\n- Pragmatics: ${mt.pra}`,'coach');updateMetrics(mt);turn=Math.min(turn+1,scenarios[scenario].length-1);}showPrompt();input.addEventListener('keydown',e=>{if(e.key==='Enter')send();});</script></body></html>
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dr. G’s Language Coach Demo</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#070A16;color:#E9ECF7}
+    header{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.35);position:sticky;top:0}
+    h1{font-size:26px;margin:12px 0}p{color:#AAB2D9;line-height:1.45;font-weight:600}
+    .container{max-width:980px;margin:0 auto;padding:16px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .logo{height:44px;border-radius:10px}
+    .btns{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.02);color:#E9ECF7;cursor:pointer}
+    .pill:hover{background:rgba(255,255,255,0.06)}
+    .card{border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px;background:rgba(255,255,255,0.03);margin-bottom:18px}
+    .chat{height:260px;overflow:auto;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;background:rgba(0,0,0,0.16)}
+    .bubble{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03)}
+    .me{background:linear-gradient(135deg,rgba(45,156,219,0.20),rgba(255,255,255,0.04))}
+    .meta{font-size:12px;font-weight:900;color:#AAB2D9}
+    .row{display:flex;gap:10px}
+    .row input{flex:1;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);color:#E9ECF7}
+    .row button{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:linear-gradient(135deg,rgba(255,209,102,0.25),rgba(45,156,219,0.18));font-weight:900;color:#fff;cursor:pointer}
+    .row button:hover{filter:brightness(1.07)}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+    .metric{border-radius:14px;padding:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.02)}
+    .metric strong{display:block;font-size:12px;color:#AAB2D9}.metric span{font-weight:900}
+    .foot{font-size:12px;color:#AAB2D9;margin-top:6px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <div class="top">
+      <div style="display:flex;align-items:center;gap:10px">
+        <img class="logo" src="Logo_Dr.G'SLC_512.png" alt="Dr. G's Language Coach logo">
+        <div><strong>Dr. G’s Language Coach</strong></div>
+      </div>
+      <div class="btns">
+        <button class="pill" onclick="setScenario('Study Abroad')">Study Abroad</button>
+        <button class="pill" onclick="setScenario('Job Interview')">Job Interview</button>
+        <button class="pill" onclick="setScenario('Academic Presentation')">Academic Presentation</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h1>Institutional demo</h1>
+    <p>AI language coaching + metrics for universities. Demo con fallback: si el backend no responde, muestra el feedback precomputado.</p>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong>Coaching session</strong>
+        <div id="scenarioLabel" class="foot">Scenario: Study Abroad</div>
+      </div>
+      <div id="sessionLCI" style="font-weight:900">LCI: —</div>
+    </div>
+
+    <div id="chat" class="chat" aria-label="Demo conversation"></div>
+
+    <div class="metrics" aria-label="Language Capital metrics">
+      <div class="metric"><strong>Accuracy</strong><span id="mAccuracy">—</span></div>
+      <div class="metric"><strong>Complexity</strong><span id="mComplexity">—</span></div>
+      <div class="metric"><strong>Pragmatics</strong><span id="mPragmatics">—</span></div>
+    </div>
+
+    <div class="row">
+      <input id="input" placeholder="Escribe aquí (2–4 frases)..." aria-label="Your message">
+      <button onclick="send()">Send</button>
+    </div>
+
+    <div class="foot">Powered by Cloudflare Worker + OpenAI (tu key no está en el frontend).</div>
+  </div>
+
+  <div class="card">
+    <strong>Faculty dashboard (demo)</strong>
+    <p class="foot" style="margin:10px 0 0">Sessions: 64 · Avg LCI: 72 · Export: CSV</p>
+  </div>
+</div>
+
+<footer class="container">
+  <div class="foot">GitHub Pages demo · DrG25</div>
+</footer>
+
+<script>
+const API_URL = "https://drgs-language-coach-api.jit45bof.workers.dev/api/chat";
+
+const scenarios = {
+  "Study Abroad": [
+    {
+      prompt: "Bienvenido. Practiquemos una auto-presentación breve. 2–4 frases.",
+      metrics: { acc:55, comp:48, pra:62 },
+      summary: "Bien estructurado. Upgrade: agrega una frase conectando metas y aprendizaje cultural."
+    }
+  ],
+  "Job Interview": [
+    {
+      prompt: "Tell me about yourself (30–45 words).",
+      metrics: { acc:64, comp:63, pra:70 },
+      summary: "Buen formato. Upgrade: sustituye fillers por conectores profesionales."
+    }
+  ],
+  "Academic Presentation": [
+    {
+      prompt: "Write an opening: topic, thesis, why it matters.",
+      metrics: { acc:61, comp:55, pra:66 },
+      summary: "Claro. Upgrade: añade frase de mapa (First, I will...)."
+    }
+  ]
+};
+
+const chat = document.getElementById("chat"),
+      input = document.getElementById("input"),
+      scenarioLabel = document.getElementById("scenarioLabel"),
+      sessionLCI = document.getElementById("sessionLCI");
+const mA = document.getElementById("mAccuracy"),
+      mC = document.getElementById("mComplexity"),
+      mP = document.getElementById("mPragmatics");
+
+let scenario = "Study Abroad";
+
+function addBubble(text, who) {
+  const div = document.createElement("div");
+  div.className = "bubble " + (who === "me" ? "me" : "");
+  div.innerHTML = `<div class="meta">${who === "me" ? "You" : "Coach"}</div><div>${text.replace(/\n/g,"<br>")}</div>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function setScenario(s) {
+  scenario = s;
+  scenarioLabel.textContent = "Scenario: " + s;
+  chat.innerHTML = "";
+  showPrompt();
+  mA.textContent = mC.textContent = mP.textContent = "—";
+  sessionLCI.textContent = "LCI: —";
+}
+
+function showPrompt() {
+  addBubble(scenarios[scenario][0].prompt, "coach");
+}
+
+function updateMetrics(mt) {
+  mA.textContent = mt.acc + "/100";
+  mC.textContent = mt.comp + "/100";
+  mP.textContent = mt.pra + "/100";
+  const lci = Math.round((mt.acc + mt.comp + mt.pra) / 3);
+  sessionLCI.textContent = "LCI: " + lci;
+}
+
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  addBubble(text, "me");
+
+  // Try live API first
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, scenario })
+    });
+
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+    addBubble(data.coach, "coach");
+  } catch (e) {
+    // Fallback demo
+    const mt = scenarios[scenario][0].metrics;
+    addBubble(
+      "Feedback:\n" +
+        scenarios[scenario][0].summary +
+        `\n\nLanguage Capital snapshot:\n- Accuracy: ${mt.acc}\n- Complexity: ${mt.comp}\n- Pragmatics: ${mt.pra}`,
+      "coach"
+    );
+    updateMetrics(mt);
+  }
+}
+
+showPrompt();
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") send();
+});
+</script>
+</body>
+</html>
