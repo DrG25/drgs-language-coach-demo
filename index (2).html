@@ -1,0 +1,345 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dr. G’s Language Coach Demo</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#070A16;color:#E9ECF7}
+    header{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.35);position:sticky;top:0}
+    h1{font-size:26px;margin:12px 0}p{color:#AAB2D9;line-height:1.45;font-weight:600}
+    .container{max-width:980px;margin:0 auto;padding:16px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .logo{height:44px;border-radius:10px}
+    .btns{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.02);color:#E9ECF7;cursor:pointer}
+    .pill:hover{background:rgba(255,255,255,0.06)}
+    .card{border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px;background:rgba(255,255,255,0.03);margin-bottom:18px}
+    .chat{height:260px;overflow:auto;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;background:rgba(0,0,0,0.16)}
+    .bubble{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03)}
+    .me{background:linear-gradient(135deg,rgba(45,156,219,0.20),rgba(255,255,255,0.04))}
+    .meta{font-size:12px;font-weight:900;color:#AAB2D9}
+    .row{display:flex;gap:10px}
+    .row input{flex:1;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);color:#E9ECF7}
+    .row button{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:linear-gradient(135deg,rgba(255,209,102,0.25),rgba(45,156,219,0.18));font-weight:900;color:#fff;cursor:pointer}
+    .row button:hover{filter:brightness(1.07)}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+    .metric{border-radius:14px;padding:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.02)}
+    .metric strong{display:block;font-size:12px;color:#AAB2D9}.metric span{font-weight:900}
+    .foot{font-size:12px;color:#AAB2D9;margin-top:6px}
+    .pad{margin-top:10px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <div class="top">
+      <div style="display:flex;align-items:center;gap:10px">
+        <img class="logo" src="logo.png" alt="Dr. G's Language Coach logo">
+        <div><strong>Dr. G’s Language Coach</strong></div>
+      </div>
+      <div class="btns">
+        <button class="pill" onclick="setScenario('Study Abroad')">Study Abroad</button>
+        <button class="pill" onclick="setScenario('Job Interview')">Job Interview</button>
+        <button class="pill" onclick="setScenario('Academic Presentation')">Academic Presentation</button>
+        <button class="pill" onclick="setScenario('Business')">Business</button>
+        <button class="pill" onclick="setScenario('Health')">Health</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h1>Demo</h1>
+    <p>AI language coaching + metrics for learners.</p>
+    <p class="pad">Languages: English, Spanish, Korean, Chinese, German</p>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong>Coaching session</strong>
+        <div id="scenarioLabel" class="foot">Scenario: Study Abroad</div>
+      </div>
+      <div id="sessionLCI" style="font-weight:900">LCI: —</div>
+    </div>
+
+    <div id="chat" class="chat" aria-label="Demo conversation"></div>
+
+    <div class="metrics" aria-label="Language Capital metrics">
+      <div class="metric"><strong>Accuracy</strong><span id="mAccuracy">—</span></div>
+      <div class="metric"><strong>Complexity</strong><span id="mComplexity">—</span></div>
+      <div class="metric"><strong>Pragmatics</strong><span id="mPragmatics">—</span></div>
+    </div>
+
+    <div class="row">
+      <input id="input" placeholder="Escribe aquí (2–4 frases)..." aria-label="Your message">
+      <button class="pill" onclick="toggleMic()">🎙️</button>
+      <button class="pill" onclick="stopSpeak()">⏹</button>
+      <button onclick="send()">Send</button>
+    </div>
+
+    <div class="foot">Powered by Cloudflare Worker + OpenAI (key stays in the backend).</div>
+  </div>
+
+  <div class="card">
+    <strong>Faculty dashboard</strong>
+    <p class="foot pad" style="margin:10px 0 0">
+      Sessions: <span id="dSessions">0</span> · Avg LCI: <span id="dAvg">—</span> · Export:
+      <button class="pill" onclick="exportCsv()">CSV</button>
+    </p>
+    <div id="dashTable" class="foot">No sessions yet.</div>
+  </div>
+</div>
+
+<footer class="container">
+  <div class="foot">GitHub Pages demo · DrG25</div>
+</footer>
+
+<script>
+const API_URL = "https://drgs-language-coach-api.jit45bof.workers.dev/api/chat";
+
+const scenarios = {
+  "Study Abroad": [
+    { prompt: "Bienvenido. Practiquemos una auto-presentación breve. 2–4 frases.", metrics:{acc:55,comp:48,pra:62},
+      summary:"Bien estructurado. Upgrade: agrega una frase conectando metas y aprendizaje cultural." }
+  ],
+  "Job Interview": [
+    { prompt: "Tell me about yourself (30–45 words).", metrics:{acc:64,comp:63,pra:70},
+      summary:"Buen formato. Upgrade: sustituye fillers por conectores profesionales." }
+  ],
+  "Academic Presentation": [
+    { prompt: "Write an opening: topic, thesis, why it matters.", metrics:{acc:61,comp:55,pra:66},
+      summary:"Claro. Upgrade: añade frase de mapa (First, I will...)."}
+  ],
+  "Business": [
+    { prompt: "Describe un problema en el lugar de trabajo y una solución (2–4 frases).", metrics:{acc:60,comp:60,pra:65},
+      summary:"Buen enfoque. Upgrade: agrega un ejemplo concreto con números o impacto." }
+  ],
+  "Health": [
+    { prompt: "Explica un síntoma y qué harías al respecto (2–4 frases).", metrics:{acc:58,comp:55,pra:62},
+      summary:"Es claro. Upgrade: añade vocabulario específico y una recomendación con condicional." }
+  ]
+};
+
+const STORAGE_KEY = "drg_langcoach_sessions";
+
+const chat = document.getElementById("chat"),
+      input = document.getElementById("input"),
+      scenarioLabel = document.getElementById("scenarioLabel"),
+      sessionLCI = document.getElementById("sessionLCI"),
+      mA = document.getElementById("mAccuracy"),
+      mC = document.getElementById("mComplexity"),
+      mP = document.getElementById("mPragmatics"),
+      dSessions = document.getElementById("dSessions"),
+      dAvg = document.getElementById("dAvg"),
+      dashTable = document.getElementById("dashTable");
+
+let recog = null;
+let isListening = false;
+
+function initSpeech(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    recog = new SR();
+    recog.lang = navigator.language || "en-US";
+    recog.interimResults = true;
+    recog.onresult = (e) => {
+      let transcript = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+      }
+      input.value = transcript.trim();
+    };
+    recog.onend = () => { isListening = false; };
+  }
+}
+
+function toggleMic(){
+  if (!recog) { alert("Dictation not supported in this browser. Try Chrome."); return; }
+  if (!isListening){
+    isListening = true;
+    recog.start();
+  } else {
+    isListening = false;
+    recog.stop();
+  }
+}
+
+function speak(text){
+  if (!("speechSynthesis" in window)) return;
+  stopSpeak();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = navigator.language || "en-US";
+  u.rate = 1;
+  window.speechSynthesis.speak(u);
+}
+
+function stopSpeak(){
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+}
+
+let scenario = "Study Abroad";
+
+function addBubble(text, who) {
+  const div = document.createElement("div");
+  div.className = "bubble " + (who === "me" ? "me" : "");
+  div.innerHTML = '<div class="meta">' + (who === "me" ? "You" : "Coach") + '</div><div>' + text + '</div>';
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function updateMetrics(mt){
+  mA.textContent = Math.round(mt.acc) + "/100";
+  mC.textContent = Math.round(mt.comp) + "/100";
+  mP.textContent = Math.round(mt.pra) + "/100";
+  const lci = Math.round((mt.acc + mt.comp + mt.pra) / 3);
+  sessionLCI.textContent = "LCI: " + lci;
+}
+
+function setScenario(s) {
+  scenario = s;
+  scenarioLabel.textContent = "Scenario: " + s;
+  chat.innerHTML = "";
+  showPrompt();
+  updateMetrics({acc:0,comp:0,pra:0});
+}
+
+function showPrompt() {
+  addBubble(scenarios[scenario][0].prompt, "coach");
+}
+
+function loadSessions(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveSessions(list){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
+function addSession(entry){
+  const list = loadSessions();
+  list.unshift(entry);
+  saveSessions(list.slice(0, 100));
+}
+
+function refreshDashboard(){
+  const list = loadSessions();
+  if (!list.length){
+    dSessions.textContent = "0";
+    dAvg.textContent = "—";
+    dashTable.textContent = "No sessions yet.";
+    return;
+  }
+  dSessions.textContent = list.length;
+  const avg = Math.round(list.reduce((s,x)=>s+(x.lci||0),0)/list.length);
+  dAvg.textContent = avg;
+
+  const top = list.slice(0,5).map(x => ({
+    ts: x.ts ? new Date(x.ts).toLocaleString() : "—",
+    scenario: x.scenario || "—",
+    lci: x.lci ?? "—"
+  }));
+
+  dashTable.textContent = "";
+  const table = document.createElement("table");
+  table.className = "foot";
+  const header = document.createElement("tr");
+  header.innerHTML = "<th style='padding-right:10px'>Time</th><th style='padding-right:10px'>Scenario</th><th>LCI</th>";
+  table.appendChild(header);
+  top.forEach(x=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td style='padding-right:10px'>${x.ts}</td><td style='padding-right:10px'>${x.scenario}</td><td>${x.lci}</td>`;
+    table.appendChild(tr);
+  });
+  dashTable.appendChild(table);
+}
+
+function exportCsv(){
+  const list = loadSessions();
+  if (!list.length) return;
+
+  const rows = [["ts","scenario","lci","text"]];
+  list.forEach(x=>{
+    rows.push([
+      x.ts || "",
+      x.scenario || "",
+      x.lci ?? "",
+      (x.text || "").replace(/(
+|
+|)/g," ").slice(0,200)
+    ]);
+  });
+
+  const csv = rows.map(r=>r.map(escapeCsv).join(",")).join("
+");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "language-coach-sessions.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsv(v){
+  const s = String(v);
+  return (/[" ,
+]/.test(s)) ? `"${s.replace(/"/g,'""')}"` : s;
+}
+
+async function send() {
+  stopSpeak();
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  addBubble(text, "me");
+
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, scenario })
+    });
+
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+
+    if (data.metrics) updateMetrics(data.metrics);
+    if (data.entry) { addSession(data.entry); refreshDashboard(); }
+
+    addBubble(data.coach, "coach");
+    speak(data.coach);
+  } catch (e) {
+    const mt = scenarios[scenario][0].metrics;
+    updateMetrics(mt);
+    const lci = Math.round((mt.acc + mt.comp + mt.pra) / 3);
+    addBubble(
+      "Feedback:
+" +
+        scenarios[scenario][0].summary +
+        `
+
+Language Capital snapshot:
+- Accuracy: ${Math.round(mt.acc)}
+- Complexity: ${Math.round(mt.comp)}
+- Pragmatics: ${Math.round(mt.pra)}
+- LCI: ${lci}`,
+      "coach"
+    );
+  }
+}
+
+refreshDashboard();
+showPrompt();
+initSpeech();
+
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") send();
+});
+</script>
+</body>
+</html>
