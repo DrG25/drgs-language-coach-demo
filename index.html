@@ -1,8 +1,8 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Dr. G’s Language Coach Demo</title>
   <style>
     body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#070A16;color:#E9ECF7}
@@ -29,10 +29,7 @@
     .metric strong{display:block;font-size:12px;color:#AAB2D9}
     .metric span{font-weight:900}
     .foot{font-size:12px;color:#AAB2D9;margin-top:6px}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:4px 6px}
-    th{text-align:left;color:#AAB2D9;font-weight:900}
-    td{color:#E9ECF7}
+    .pad{margin-top:10px}
   </style>
 </head>
 <body>
@@ -58,7 +55,7 @@
   <div class="card">
     <h1>Demo</h1>
     <p>AI language coaching + metrics for learners.</p>
-    <p>Languages: English, Spanish, Korean, Chinese, German</p>
+    <p class="pad">Languages: English, Spanish, Korean, Chinese, German</p>
   </div>
 
   <div class="card">
@@ -79,16 +76,16 @@
     </div>
 
     <div class="row">
-      <input id="input" placeholder="Write 2–4 sentences..." aria-label="Your message">
-      <button onclick="send()">Send</button>
+      <input id="input" placeholder="Escribe aquí (2–4 frases)..." aria-label="Your message">
+      <button type="button" onclick="send()">Send</button>
     </div>
 
-    <div class="foot">Powered by Cloudflare Worker + OpenAI (key stays in the backend).</div>
+    <div class="foot">Backend: Cloudflare Worker + OpenAI (key stays in backend). If backend is down, it shows fallback feedback.</div>
   </div>
 
   <div class="card">
     <strong>Faculty dashboard</strong>
-    <p class="foot" style="margin:10px 0 0">
+    <p class="foot pad" style="margin:10px 0 0">
       Sessions: <span id="dSessions">0</span> · Avg LCI: <span id="dAvg">—</span> · Export:
       <button class="pill" onclick="exportCsv()">CSV</button>
     </p>
@@ -102,22 +99,39 @@
 
 <script>
 const API_URL = "https://drgs-language-coach-api.jit45bof.workers.dev/api/chat";
+const STORAGE_KEY = "drg_langcoach_sessions";
+
+function escapeHtml(str){
+  return String(str)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;");
+}
+function nl2br(str){
+  return escapeHtml(str).replace(/
+/g,"<br>");
+}
 
 const scenarios = {
   "Study Abroad": [
-    { prompt: "Practiquemos una auto-presentación breve (2–4 frases).", summary: "Upgrade: conecta metas con aprendizaje cultural." }
+    { prompt: "Bienvenido. Practiquemos una auto-presentación breve. 2–4 frases.", metrics:{acc:55,comp:48,pra:62},
+      summary:"Bien estructurado. Upgrade: agrega una frase conectando metas y aprendizaje cultural." }
   ],
   "Job Interview": [
-    { prompt: "Tell me about yourself (30–45 words).", summary: "Upgrade: reemplaza fillers por conectores profesionales." }
+    { prompt: "Tell me about yourself (30–45 words).", metrics:{acc:64,comp:63,pra:70},
+      summary:"Buen formato. Upgrade: sustituye fillers por conectores profesionales." }
   ],
   "Academic Presentation": [
-    { prompt: "Write an opening: topic, thesis, why it matters.", summary: "Upgrade: añade una frase de mapa (First, I will...)."}
+    { prompt: "Write an opening: topic, thesis, why it matters.", metrics:{acc:61,comp:55,pra:66},
+      summary:"Claro. Upgrade: añade frase de mapa (First, I will...)."}
   ],
   "Business": [
-    { prompt: "Describe un problema en el trabajo y una solución (2–4 frases).", summary: "Upgrade: añade un ejemplo con impacto." }
+    { prompt: "Describe un problema en el lugar de trabajo y una solución (2–4 frases).", metrics:{acc:60,comp:60,pra:65},
+      summary:"Buen enfoque. Upgrade: agrega un ejemplo concreto con números o impacto." }
   ],
   "Health": [
-    { prompt: "Explica un síntoma y qué harías (2–4 frases).", summary: "Upgrade: añade vocabulario específico y una recomendación condicional." }
+    { prompt: "Explica un síntoma y qué harías al respecto (2–4 frases).", metrics:{acc:58,comp:55,pra:62},
+      summary:"Es claro. Upgrade: añade vocabulario específico y una recomendación con condicional." }
   ]
 };
 
@@ -137,43 +151,19 @@ let scenario = "Study Abroad";
 function addBubble(text, who) {
   const div = document.createElement("div");
   div.className = "bubble " + (who === "me" ? "me" : "");
-  const safe = String(text).split("
-").join("<br>");
-  div.innerHTML = `<div class="meta">${who === "me" ? "You" : "Coach"}</div><div>${safe}</div>`;
+  div.innerHTML = "<div class='meta'>" + (who === "me" ? "You" : "Coach") + "</div><div>" + nl2br(text) + "</div>";
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
 }
 
-function clamp(x){ return Math.max(0, Math.min(100, x)); }
-
-function computeMetrics(text){
-  const words = String(text).trim().split(/\s+/).filter(Boolean);
-  const wordCount = words.length;
-  const uniqueCount = new Set(words.map(w => w.toLowerCase())).size;
-  const lexical = wordCount ? uniqueCount / wordCount : 0;
-
-  const sentences = String(text).split(/[.!?]/).filter(s => s.trim().length).length;
-  const avgSentence = sentences ? wordCount / sentences : wordCount;
-
-  let acc = 45 + lexical * 25 + Math.min(wordCount, 60) / 3;
-  let comp = 35 + lexical * 35 + avgSentence * 1.6;
-  let pra = 45 + Math.min(sentences, 3) * 10;
-
-  const t = String(text).toLowerCase();
-  const polite = ["please","thank","gracias","por favor","thank you","perdón","sorry"];
-  if (polite.some(p => t.includes(p))) pra += 8;
-  if (t.includes("because") || t.includes("porque")) comp += 5;
-
-  acc = clamp(acc); comp = clamp(comp); pra = clamp(pra);
-  return { acc, comp, pra };
-}
-
 function updateMetrics(mt){
-  mA.textContent = Math.round(mt.acc) + "/100";
-  mC.textContent = Math.round(mt.comp) + "/100";
-  mP.textContent = Math.round(mt.pra) + "/100";
-  const lci = Math.round((mt.acc + mt.comp + mt.pra) / 3);
+  const a = Math.round(mt.acc), c = Math.round(mt.comp), p = Math.round(mt.pra);
+  mA.textContent = a + "/100";
+  mC.textContent = c + "/100";
+  mP.textContent = p + "/100";
+  const lci = Math.round((a + c + p) / 3);
   sessionLCI.textContent = "LCI: " + lci;
+  return lci;
 }
 
 function setScenario(s) {
@@ -189,18 +179,16 @@ function showPrompt() {
 }
 
 function loadSessions(){
-  try { return JSON.parse(localStorage.getItem("drg_langcoach_sessions")) || []; }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
   catch { return []; }
 }
-
 function saveSessions(list){
-  localStorage.setItem("drg_langcoach_sessions", JSON.stringify(list));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
-
 function addSession(entry){
   const list = loadSessions();
   list.unshift(entry);
-  saveSessions(list.slice(0,100));
+  saveSessions(list.slice(0, 100));
 }
 
 function refreshDashboard(){
@@ -218,17 +206,20 @@ function refreshDashboard(){
   const top = list.slice(0,5).map(x => ({
     ts: x.ts ? new Date(x.ts).toLocaleString() : "—",
     scenario: x.scenario || "—",
-    lci: x.lci == null ? "—" : x.lci
+    lci: x.lci ?? "—"
   }));
 
   dashTable.textContent = "";
   const table = document.createElement("table");
+  table.className = "foot";
   const header = document.createElement("tr");
-  header.innerHTML = "<th>Time</th><th>Scenario</th><th>LCI</th>";
+  header.innerHTML = "<th style='padding-right:10px'>Time</th><th style='padding-right:10px'>Scenario</th><th>LCI</th>";
   table.appendChild(header);
   top.forEach(x=>{
     const tr=document.createElement("tr");
-    tr.innerHTML = `<td>${x.ts}</td><td>${x.scenario}</td><td>${x.lci}</td>`;
+    tr.innerHTML = "<td style='padding-right:10px'>" + x.ts +
+                   "</td><td style='padding-right:10px'>" + x.scenario +
+                   "</td><td>" + x.lci + "</td>";
     table.appendChild(tr);
   });
   dashTable.appendChild(table);
@@ -240,13 +231,13 @@ function exportCsv(){
 
   const rows = [["ts","scenario","lci","text"]];
   list.forEach(x=>{
-    const cleaned = String(x.text||"").split("
-").join(" ");
     rows.push([
       x.ts || "",
       x.scenario || "",
-      x.lci == null ? "" : x.lci,
-      cleaned.slice(0,200)
+      x.lci ?? "",
+      (x.text || "").replace(/(
+|
+|)/g," ").slice(0,200)
     ]);
   });
 
@@ -263,8 +254,8 @@ function exportCsv(){
 
 function escapeCsv(v){
   const s = String(v);
-  return (/[",
-]/.test(s)) ? `"${s.replace(/"/g,'""')}"` : s;
+  return (/[" ,
+]/.test(s)) ? '"' + s.replace(/"/g,'""') + '"' : s;
 }
 
 async function send() {
@@ -272,37 +263,46 @@ async function send() {
   if (!text) return;
   input.value = "";
 
-  const mt = computeMetrics(text);
-  updateMetrics(mt);
-
   addBubble(text, "me");
 
   try {
     const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, scenario })
+      body: JSON.stringify({ text: text, scenario: scenario })
     });
 
     if (!resp.ok) throw new Error(await resp.text());
     const data = await resp.json();
 
-    if (data.metrics) updateMetrics(data.metrics);
-    if (data.entry) { addSession(data.entry); refreshDashboard(); }
+    if (data.metrics) {
+      const lci = updateMetrics(data.metrics);
+      if (data.entry) { addSession(data.entry); refreshDashboard(); }
+      else { addSession({ts:Date.now(), scenario:scenario, lci:lci, text:text}); refreshDashboard(); }
+    }
 
     addBubble(data.coach, "coach");
   } catch (e) {
-    addBubble("Coach unavailable. Offline demo feedback:
-"+scenarios[scenario][0].summary, "coach");
-    addSession({ ts: Date.now(), scenario, lci: Math.round((mt.acc+mt.comp+mt.pra)/3), text: text.slice(0,200) });
+    // fallback
+    const mt = scenarios[scenario][0].metrics;
+    const lci = updateMetrics(mt);
+    addSession({ts:Date.now(), scenario:scenario, lci:lci, text:text});
     refreshDashboard();
+    addBubble(
+      "Feedback:
+" + scenarios[scenario][0].summary +
+      "\n\nLanguage Capital snapshot:\n- Accuracy: " + Math.round(mt.acc) +
+      "\n- Complexity: " + Math.round(mt.comp) +
+      "\n- Pragmatics: " + Math.round(mt.pra) +
+      "\n- LCI: " + lci,
+      "coach"
+    );
   }
 }
 
 refreshDashboard();
 showPrompt();
-
-input.addEventListener("keydown", (e) => {
+input.addEventListener("keydown", function(e){
   if (e.key === "Enter") send();
 });
 </script>
