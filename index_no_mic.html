@@ -1,0 +1,306 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dr. G’s Language Coach Demo</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#070A16;color:#E9ECF7}
+    header{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.35);position:sticky;top:0}
+    h1{font-size:26px;margin:12px 0}
+    p{color:#AAB2D9;line-height:1.45;font-weight:600}
+    .container{max-width:980px;margin:0 auto;padding:16px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .logo{height:44px;border-radius:10px}
+    .btns{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.02);color:#E9ECF7;cursor:pointer}
+    .pill:hover{background:rgba(255,255,255,0.06)}
+    .card{border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px;background:rgba(255,255,255,0.03);margin-bottom:18px}
+    .chat{height:260px;overflow:auto;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;background:rgba(0,0,0,0.16)}
+    .bubble{margin:10px 0;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03)}
+    .me{background:linear-gradient(135deg,rgba(45,156,219,0.20),rgba(255,255,255,0.04))}
+    .meta{font-size:12px;font-weight:900;color:#AAB2D9}
+    .row{display:flex;gap:10px}
+    .row input{flex:1;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);color:#E9ECF7}
+    .row button{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:linear-gradient(135deg,rgba(255,209,102,0.25),rgba(45,156,219,0.18));font-weight:900;color:#fff;cursor:pointer}
+    .row button:hover{filter:brightness(1.07)}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+    .metric{border-radius:14px;padding:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.02)}
+    .metric strong{display:block;font-size:12px;color:#AAB2D9}
+    .metric span{font-weight:900}
+    .foot{font-size:12px;color:#AAB2D9;margin-top:6px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:4px 6px}
+    th{text-align:left;color:#AAB2D9;font-weight:900}
+    td{color:#E9ECF7}
+  </style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <div class="top">
+      <div style="display:flex;align-items:center;gap:10px">
+        <img class="logo" src="logo.png" alt="Dr. G's Language Coach logo">
+        <div><strong>Dr. G’s Language Coach</strong></div>
+      </div>
+      <div class="btns">
+        <button class="pill" onclick="setScenario('Study Abroad')">Study Abroad</button>
+        <button class="pill" onclick="setScenario('Job Interview')">Job Interview</button>
+        <button class="pill" onclick="setScenario('Academic Presentation')">Academic Presentation</button>
+        <button class="pill" onclick="setScenario('Business')">Business</button>
+        <button class="pill" onclick="setScenario('Health')">Health</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h1>Demo</h1>
+    <p>AI language coaching + metrics for learners.</p>
+    <p>Languages: English, Spanish, Korean, Chinese, German</p>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong>Coaching session</strong>
+        <div id="scenarioLabel" class="foot">Scenario: Study Abroad</div>
+      </div>
+      <div id="sessionLCI" style="font-weight:900">LCI: —</div>
+    </div>
+
+    <div id="chat" class="chat" aria-label="Demo conversation"></div>
+
+    <div class="metrics" aria-label="Language Capital metrics">
+      <div class="metric"><strong>Accuracy</strong><span id="mAccuracy">—</span></div>
+      <div class="metric"><strong>Complexity</strong><span id="mComplexity">—</span></div>
+      <div class="metric"><strong>Pragmatics</strong><span id="mPragmatics">—</span></div>
+    </div>
+
+    <div class="row">
+      <input id="input" placeholder="Write 2–4 sentences..." aria-label="Your message">
+      <button onclick="send()">Send</button>
+    </div>
+
+    <div class="foot">Powered by Cloudflare Worker + OpenAI (key stays in the backend).</div>
+  </div>
+
+  <div class="card">
+    <strong>Faculty dashboard</strong>
+    <p class="foot" style="margin:10px 0 0">
+      Sessions: <span id="dSessions">0</span> · Avg LCI: <span id="dAvg">—</span> · Export:
+      <button class="pill" onclick="exportCsv()">CSV</button>
+    </p>
+    <div id="dashTable" class="foot">No sessions yet.</div>
+  </div>
+</div>
+
+<footer class="container">
+  <div class="foot">GitHub Pages demo · DrG25</div>
+</footer>
+
+<script>
+const API_URL = "https://drgs-language-coach-api.jit45bof.workers.dev/api/chat";
+
+const scenarios = {
+  "Study Abroad": [
+    { prompt: "Practiquemos una auto-presentación breve (2–4 frases).", summary: "Upgrade: conecta metas con aprendizaje cultural." }
+  ],
+  "Job Interview": [
+    { prompt: "Tell me about yourself (30–45 words).", summary: "Upgrade: reemplaza fillers por conectores profesionales." }
+  ],
+  "Academic Presentation": [
+    { prompt: "Write an opening: topic, thesis, why it matters.", summary: "Upgrade: añade una frase de mapa (First, I will...)." }
+  ],
+  "Business": [
+    { prompt: "Describe un problema en el trabajo y una solución (2–4 frases).", summary: "Upgrade: añade un ejemplo con impacto." }
+  ],
+  "Health": [
+    { prompt: "Explica un síntoma y qué harías (2–4 frases).", summary: "Upgrade: añade vocabulario específico y una recomendación condicional." }
+  ]
+};
+
+const chat = document.getElementById("chat"),
+      input = document.getElementById("input"),
+      scenarioLabel = document.getElementById("scenarioLabel"),
+      sessionLCI = document.getElementById("sessionLCI"),
+      mA = document.getElementById("mAccuracy"),
+      mC = document.getElementById("mComplexity"),
+      mP = document.getElementById("mPragmatics"),
+      dSessions = document.getElementById("dSessions"),
+      dAvg = document.getElementById("dAvg"),
+      dashTable = document.getElementById("dashTable");
+
+let scenario = "Study Abroad";
+
+function addBubble(text, who) {
+  const div = document.createElement("div");
+  div.className = "bubble " + (who === "me" ? "me" : "");
+  const safe = String(text).split("\n").join("<br>");
+  div.innerHTML = `<div class="meta">${who === "me" ? "You" : "Coach"}</div><div>${safe}</div>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function clamp(x){ return Math.max(0, Math.min(100, x)); }
+
+function computeMetrics(text){
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+  const uniqueCount = new Set(words.map(w => w.toLowerCase())).size;
+  const lexical = wordCount ? uniqueCount / wordCount : 0;
+
+  const sentences = String(text).split(/[.!?]/).filter(s => s.trim().length).length;
+  const avgSentence = sentences ? wordCount / sentences : wordCount;
+
+  let acc = 45 + lexical * 25 + Math.min(wordCount, 60) / 3;
+  let comp = 35 + lexical * 35 + avgSentence * 1.6;
+  let pra = 45 + Math.min(sentences, 3) * 10;
+
+  const t = String(text).toLowerCase();
+  const polite = ["please","thank","gracias","por favor","thank you","perdón","sorry"];
+  if (polite.some(p => t.includes(p))) pra += 8;
+  if (t.includes("because") || t.includes("porque")) comp += 5;
+
+  acc = clamp(acc); comp = clamp(comp); pra = clamp(pra);
+  return { acc, comp, pra };
+}
+
+function updateMetrics(mt){
+  mA.textContent = Math.round(mt.acc) + "/100";
+  mC.textContent = Math.round(mt.comp) + "/100";
+  mP.textContent = Math.round(mt.pra) + "/100";
+  const lci = Math.round((mt.acc + mt.comp + mt.pra) / 3);
+  sessionLCI.textContent = "LCI: " + lci;
+}
+
+function setScenario(s) {
+  scenario = s;
+  scenarioLabel.textContent = "Scenario: " + s;
+  chat.innerHTML = "";
+  showPrompt();
+  updateMetrics({acc:0,comp:0,pra:0});
+}
+
+function showPrompt() {
+  addBubble(scenarios[scenario][0].prompt, "coach");
+}
+
+function loadSessions(){
+  try { return JSON.parse(localStorage.getItem("drg_langcoach_sessions")) || []; }
+  catch { return []; }
+}
+
+function saveSessions(list){
+  localStorage.setItem("drg_langcoach_sessions", JSON.stringify(list));
+}
+
+function addSession(entry){
+  const list = loadSessions();
+  list.unshift(entry);
+  saveSessions(list.slice(0,100));
+}
+
+function refreshDashboard(){
+  const list = loadSessions();
+  if (!list.length){
+    dSessions.textContent = "0";
+    dAvg.textContent = "—";
+    dashTable.textContent = "No sessions yet.";
+    return;
+  }
+  dSessions.textContent = list.length;
+  const avg = Math.round(list.reduce((s,x)=>s+(x.lci||0),0)/list.length);
+  dAvg.textContent = avg;
+
+  const top = list.slice(0,5).map(x => ({
+    ts: x.ts ? new Date(x.ts).toLocaleString() : "—",
+    scenario: x.scenario || "—",
+    lci: x.lci == null ? "—" : x.lci
+  }));
+
+  dashTable.textContent = "";
+  const table = document.createElement("table");
+  const header = document.createElement("tr");
+  header.innerHTML = "<th>Time</th><th>Scenario</th><th>LCI</th>";
+  table.appendChild(header);
+  top.forEach(x=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td>${x.ts}</td><td>${x.scenario}</td><td>${x.lci}</td>`;
+    table.appendChild(tr);
+  });
+  dashTable.appendChild(table);
+}
+
+function exportCsv(){
+  const list = loadSessions();
+  if (!list.length) return;
+
+  const rows = [["ts","scenario","lci","text"]];
+  list.forEach(x=>{
+    const cleaned = String(x.text||"").split("\n").join(" ");
+    rows.push([
+      x.ts || "",
+      x.scenario || "",
+      x.lci == null ? "" : x.lci,
+      cleaned.slice(0,200)
+    ]);
+  });
+
+  const csv = rows.map(r=>r.map(escapeCsv).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "language-coach-sessions.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsv(v){
+  const s = String(v);
+  return (/[" ,\n]/.test(s)) ? `"${s.replace(/"/g,'""')}"` : s;
+}
+
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  const mt = computeMetrics(text);
+  updateMetrics(mt);
+
+  addBubble(text, "me");
+
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, scenario })
+    });
+
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+
+    if (data.metrics) updateMetrics(data.metrics);
+    if (data.entry) { addSession(data.entry); refreshDashboard(); }
+
+    addBubble(data.coach, "coach");
+  } catch (e) {
+    addBubble("Coach unavailable. Offline demo feedback:
+"+scenarios[scenario][0].summary, "coach");
+    addSession({ ts: Date.now(), scenario, lci: Math.round((mt.acc+mt.comp+mt.pra)/3), text: text.slice(0,200) });
+    refreshDashboard();
+  }
+}
+
+refreshDashboard();
+showPrompt();
+
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") send();
+});
+</script>
+</body>
+</html>
