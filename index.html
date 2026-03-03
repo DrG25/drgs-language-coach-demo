@@ -111,7 +111,7 @@ const scenarios = {
     { prompt: "Tell me about yourself (30–45 words).", summary: "Upgrade: reemplaza fillers por conectores profesionales." }
   ],
   "Academic Presentation": [
-    { prompt: "Write an opening: topic, thesis, why it matters.", summary: "Upgrade: añade una frase de mapa (First, I will...)." }
+    { prompt: "Write an opening: topic, thesis, why it matters.", summary: "Upgrade: añade una frase de mapa (First, I will...)."}
   ],
   "Business": [
     { prompt: "Describe un problema en el trabajo y una solución (2–4 frases).", summary: "Upgrade: añade un ejemplo con impacto." }
@@ -137,7 +137,8 @@ let scenario = "Study Abroad";
 function addBubble(text, who) {
   const div = document.createElement("div");
   div.className = "bubble " + (who === "me" ? "me" : "");
-  const safe = String(text).split("\n").join("<br>");
+  const safe = String(text).split("
+").join("<br>");
   div.innerHTML = `<div class="meta">${who === "me" ? "You" : "Coach"}</div><div>${safe}</div>`;
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
@@ -239,7 +240,8 @@ function exportCsv(){
 
   const rows = [["ts","scenario","lci","text"]];
   list.forEach(x=>{
-    const cleaned = String(x.text||"").split("\n").join(" ");
+    const cleaned = String(x.text||"").split("
+").join(" ");
     rows.push([
       x.ts || "",
       x.scenario || "",
@@ -248,7 +250,8 @@ function exportCsv(){
     ]);
   });
 
-  const csv = rows.map(r=>r.map(escapeCsv).join(",")).join("\n");
+  const csv = rows.map(r=>r.map(escapeCsv).join(",")).join("
+");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -260,7 +263,8 @@ function exportCsv(){
 
 function escapeCsv(v){
   const s = String(v);
-  return (/[" ,\n]/.test(s)) ? `"${s.replace(/"/g,'""')}"` : s;
+  return (/[",
+]/.test(s)) ? `"${s.replace(/"/g,'""')}"` : s;
 }
 
 async function send() {
